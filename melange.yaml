@@ -1,0 +1,72 @@
+package:
+  name: linux-lts-virt
+  version: 5.15.86
+  epoch: 0
+  description: "Long-term-support linux kernel configured for virtual environments"
+  target-architecture:
+    - x86_64
+    - aarch64
+  dependencies:
+    runtime:
+  copyright:
+    - paths:
+      - "*"
+      attestation: TODO
+      license: GPL-2.0-only
+
+environment:
+  contents:
+    repositories:
+      - https://dl-cdn.alpinelinux.org/alpine/edge/main
+    packages:
+      - ca-certificates-bundle
+      - alpine-baselayout-data
+      - busybox
+      - build-base
+      - gmp-dev
+      - mpc1-dev
+      - mpfr-dev
+      - elfutils-dev
+      - bash
+      - flex
+      - bison
+      - zstd
+      - make
+      - openssl
+      - openssl-dev
+      - bc
+      - mawk
+      - diffutils
+      - findutils
+      - perl
+      - pahole
+      - python3
+      - linux-headers
+pipeline:
+  - uses: fetch
+    with:
+      uri: https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-${{package.version}}.tar.xz
+      expected-sha256: 80fcd9efa443502de9e2750f6dfb59e8de43a5d87a6d2be09dca748d79b5f2ee
+  - name: Use config for selected arch
+    runs: |
+      cp ${{build.arch}}.config .config
+  - name: Use defaults for unspecified config options
+    runs: |
+      make olddefconfig
+  - name: Build kernel
+    runs: |
+      make -j$(nproc)
+  - name: Create target directories
+    runs: |
+      mkdir -p ${{targets.destdir}}/boot ${{targets.destdir}}/lib/modules
+  - name: Install kernel
+    runs: |
+      _install() {
+        local _makeopts
+        case "$${{build.arch}}" in
+          aarch64) _makeopts="zinstall dtbs_install";;
+          *) _makeopts=install;;
+        esac
+        make modules_install $_makeopts INSTALL_MOD_PATH=${{targets.destdir}} INSTALL_MOD_STRIP=1 INSTALL_PATH=${{targets.destdir}}/boot
+      }
+      _install
